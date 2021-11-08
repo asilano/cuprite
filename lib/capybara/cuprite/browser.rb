@@ -23,11 +23,6 @@ module Capybara
         @page = false
       end
 
-      def timeout=(value)
-        super
-        @page.timeout = value unless @page.nil?
-      end
-
       def page
         raise Ferrum::NoSuchPageError if @page.nil?
 
@@ -46,13 +41,15 @@ module Capybara
 
       def url_whitelist=(patterns)
         @url_whitelist = prepare_wildcards(patterns)
-        page.network.intercept if @client && !@url_whitelist.empty?
+        page.network.whitelist = @url_whitelist if @client && @url_whitelist.any?
       end
+      alias url_allowlist= url_whitelist=
 
       def url_blacklist=(patterns)
         @url_blacklist = prepare_wildcards(patterns)
-        page.network.intercept if @client && !@url_blacklist.empty?
+        page.network.blacklist = @url_blacklist if @client && @url_blacklist.any?
       end
+      alias url_blocklist= url_blacklist=
 
       def visit(*args)
         goto(*args)
@@ -117,25 +114,12 @@ module Capybara
         raise NotImplementedError
       end
 
-      def drag(node, other)
-        x1, y1 = node.find_position
-        x2, y2 = other.find_position
-
-        mouse.move(x: x1, y: y1)
-        mouse.down
-        mouse.move(x: x2, y: y2)
-        mouse.up
+      def drag(_node, _other)
+        raise NotImplementedError
       end
 
-      def drag_by(node, x, y)
-        x1, y1 = node.find_position
-        x2 = x1 + x
-        y2 = y1 + y
-
-        mouse.move(x: x1, y: y1)
-        mouse.down
-        mouse.move(x: x2, y: y2)
-        mouse.up
+      def drag_by(_node, _x, _y)
+        raise NotImplementedError
       end
 
       def select_file(node, value)
@@ -192,21 +176,28 @@ module Capybara
                   evaluate("_cuprite.find(arguments[0], arguments[1])", method, selector)
                 end
 
-        nodes.select(&:node?)
+        nodes.map { |n| n.node? ? n : next }.compact
       rescue Ferrum::JavaScriptError => e
         raise InvalidSelector.new(e.response, method, selector) if e.class_name == "InvalidSelector"
 
         raise
       end
 
-      def prepare_wildcards(wc)
-        Array(wc).map do |wildcard|
-          if wildcard.is_a?(Regexp)
-            wildcard
+      def prepare_wildcards(patterns)
+        string_passed = false
+
+        Array(patterns).map do |pattern|
+          if pattern.is_a?(Regexp)
+            pattern
           else
-            wildcard = wildcard.gsub("*", ".*")
-            Regexp.new(wildcard, Regexp::IGNORECASE)
+            string_passed = true
+            pattern = pattern.gsub("*", ".*")
+            Regexp.new(pattern, Regexp::IGNORECASE)
           end
+        end
+      ensure
+        if string_passed
+          warn "Passing strings to blacklist/whitelist is deprecated, pass regexp at #{caller(4..4).first}"
         end
       end
 
