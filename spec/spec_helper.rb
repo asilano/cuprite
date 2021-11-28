@@ -14,11 +14,13 @@ require "support/test_app"
 require "support/external_browser"
 
 puts ""
-command = Ferrum::Browser::Command.build(Ferrum::Browser::Options.new, nil)
-puts `'#{command.path}' --version`
+command = Ferrum::Browser::Command.build({ window_size: [], ignore_default_browser_options: true }, nil)
+puts `#{command.to_a.first} --version`
 puts ""
 
-Capybara.save_path = File.join(CUPRITE_ROOT, "spec", "tmp", "save_path")
+Capybara.configure do |config|
+  config.disable_animation = false
+end
 
 Capybara.register_driver(:cuprite) do |app|
   options = {}
@@ -63,13 +65,11 @@ RSpec.configure do |config|
       node #visible? details non-summary descendants should be non-visible
       node #visible? works when details is toggled open and closed
       node #path reports when element in shadow dom
-      node #shadow_root
       #all with obscured filter should only find nodes on top in the viewport when false
       #all with obscured filter should not find nodes on top outside the viewport when false
       #all with obscured filter should find top nodes outside the viewport when true
       #all with obscured filter should only find non-top nodes when true
       #fill_in should fill in a color field
-      #fill_in should handle carriage returns with line feeds in a textarea correctly
       #has_field with valid should be false if field is invalid
       #find with spatial filters should find an element above another element
       #find with spatial filters should find an element below another element
@@ -83,21 +83,20 @@ RSpec.configure do |config|
     REGEXP
 
     metadata[:skip] = true if metadata[:full_description].match(/#{regexes}/)
-    metadata[:skip] = true if metadata[:requires]&.include?(:active_element)
   end
 
   config.around do |example|
     remove_temporary_folders
 
-    if ENV.fetch("CI", nil)
+    if ENV["CI"]
       session = @session || TestSessions::Cuprite
-      session.driver.browser.options.logger.truncate(0)
-      session.driver.browser.options.logger.rewind
+      session.driver.browser.logger.truncate(0)
+      session.driver.browser.logger.rewind
     end
 
     example.run
 
-    if ENV.fetch("CI", nil) && example.exception
+    if ENV["CI"] && example.exception
       session = @session || TestSessions::Cuprite
       save_exception_artifacts(session.driver.browser, example.metadata)
     end
@@ -125,13 +124,13 @@ RSpec.configure do |config|
 
   def save_exception_log(browser, filename, line_number, timestamp)
     log_name = "logfile-#{filename}-#{line_number}-#{timestamp}.txt"
-    File.binwrite("/tmp/cuprite/#{log_name}", browser.options.logger.string)
+    File.open("/tmp/cuprite/#{log_name}", "wb") { |f| f.write(browser.logger.string) }
   rescue StandardError => e
     puts "#{e.class}: #{e.message}"
   end
 
   def remove_temporary_folders
-    FileUtils.rm_rf(File.join(CUPRITE_ROOT, "spec", "tmp", "screenshots"))
-    FileUtils.rm_rf(Capybara.save_path)
+    FileUtils.rm_rf("#{CUPRITE_ROOT}/screenshots")
+    FileUtils.rm_rf("#{CUPRITE_ROOT}/save_path_tmp")
   end
 end
