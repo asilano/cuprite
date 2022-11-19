@@ -11,16 +11,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        gemfile: [capybara-3.x, websocket-driver-6.x]
-        ruby: [2.6, 2.7, 3.0]
+        gemfile: [websocket-driver-0.6.x, websocket-driver-0.7.x]
+        ruby: [2.6, 2.7, 3.0, 3.1]
     runs-on: ubuntu-latest
     env:
       FERRUM_PROCESS_TIMEOUT: 20
-      FERRUM_DEFAULT_TIMEOUT: 10
+      FERRUM_DEFAULT_TIMEOUT: 15
       BUNDLE_GEMFILE: .github/gemfiles/${{ matrix.gemfile }}.gemfile
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
@@ -41,7 +41,7 @@ jobs:
           !contains(github.event.pull_request.labels.*.name, 'master')
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: ${{ failure() }}
         with:
           name: footprints
