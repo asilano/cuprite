@@ -114,12 +114,25 @@ module Capybara
         raise NotImplementedError
       end
 
-      def drag(_node, _other)
-        raise NotImplementedError
+      def drag(node, other)
+        x1, y1 = node.find_position
+        x2, y2 = other.find_position
+
+        mouse.move(x: x1, y: y1)
+        mouse.down
+        mouse.move(x: x2, y: y2)
+        mouse.up
       end
 
-      def drag_by(_node, _x, _y)
-        raise NotImplementedError
+      def drag_by(node, x, y)
+        x1, y1 = node.find_position
+        x2 = x1 + x
+        y2 = y1 + y
+
+        mouse.move(x: x1, y: y1)
+        mouse.down
+        mouse.move(x: x2, y: y2)
+        mouse.up
       end
 
       def select_file(node, value)
@@ -176,7 +189,7 @@ module Capybara
                   evaluate("_cuprite.find(arguments[0], arguments[1])", method, selector)
                 end
 
-        nodes.map { |n| n.node? ? n : next }.compact
+        nodes.select(&:node?)
       rescue Ferrum::JavaScriptError => e
         raise InvalidSelector.new(e.response, method, selector) if e.class_name == "InvalidSelector"
 
